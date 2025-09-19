@@ -433,6 +433,46 @@ class ControlDock(QDockWidget):
     def update_lighting_status(self, message):
         try:
             ic(f"Updating lighting status with message: {message}")
+            
+            # Parse lighting control messages and update button colors
+            if 'Turn ON' in message.upper() or 'turned ON' in message.upper():
+                # Extract room name from message
+                for room in ['Living Room', 'Bedroom', 'Bathroom', 'Kitchen']:
+                    if room in message:
+                        self.light_states[room] = True
+                        room_attr = room.replace(" ", "")
+                        room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+                        getattr(self, room_attr).setStyleSheet("background-color: yellow")
+                        ic(f"Turned ON {room} light")
+                        break
+            elif 'Turn OFF' in message.upper() or 'turned OFF' in message.upper():
+                # Extract room name from message
+                for room in ['Living Room', 'Bedroom', 'Bathroom', 'Kitchen']:
+                    if room in message:
+                        self.light_states[room] = False
+                        room_attr = room.replace(" ", "")
+                        room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+                        getattr(self, room_attr).setStyleSheet("background-color: gray")
+                        ic(f"Turned OFF {room} light")
+                        break
+            elif 'EMERGENCY' in message.upper() and 'All lights activated' in message:
+                # Emergency lighting - turn all lights ON
+                for room in ['Living Room', 'Bedroom', 'Bathroom', 'Kitchen']:
+                    self.light_states[room] = True
+                    room_attr = room.replace(" ", "")
+                    room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+                    getattr(self, room_attr).setStyleSheet("background-color: yellow")
+                ic("Emergency lighting activated - all lights ON")
+            elif 'Reset' in message.upper() and 'All lights turned OFF' in message:
+                # Reset all lights - turn all lights OFF
+                for room in ['Living Room', 'Bedroom', 'Bathroom', 'Kitchen']:
+                    self.light_states[room] = False
+                    room_attr = room.replace(" ", "")
+                    room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+                    getattr(self, room_attr).setStyleSheet("background-color: gray")
+                ic("Reset all lights - all lights OFF")
+            
+            # Update status display
             if hasattr(self, 'lightingStatus') and self.lightingStatus is not None:
                 timestamp = datetime.now().strftime('%H:%M:%S')
                 status_text = f"{timestamp}: {message}"

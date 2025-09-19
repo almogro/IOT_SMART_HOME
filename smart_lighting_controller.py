@@ -196,7 +196,7 @@ class ConnectionDock(QDockWidget):
                 getattr(self, room_attr).setStyleSheet("background-color: gray")
                 action = "OFF"
                 
-            current_data = f'Light Control: {room} light turned {action}'
+            current_data = f'Turn {action} {room} light'
             self.mc.publish_to(self.ePublisherTopic.text(), current_data)
             self.update_status_display()
             ic(f"Toggled {room} light to {action}")
