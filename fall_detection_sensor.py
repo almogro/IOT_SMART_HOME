@@ -87,6 +87,11 @@ class ConnectionDock(QDockWidget):
         self.emergencyButton.clicked.connect(self.simulate_fall)
         self.emergencyButton.setStyleSheet("background-color: red")
         
+        self.resetButton = QPushButton("Reset Status", self)
+        self.resetButton.setToolTip("Reset fall detection status")
+        self.resetButton.clicked.connect(self.reset_status)
+        self.resetButton.setStyleSheet("background-color: orange")
+        
         formLayot = QFormLayout()
         formLayot.addRow("Turn On/Off", self.eConnectbtn)
         formLayot.addRow("Pub topic", self.ePublisherTopic)
@@ -95,6 +100,7 @@ class ConnectionDock(QDockWidget):
         formLayot.addRow("Acceleration Z", self.accelerationZ)
         formLayot.addRow("Fall Status", self.fallStatus)
         formLayot.addRow("", self.emergencyButton)
+        formLayot.addRow("", self.resetButton)
         
         widget = QWidget(self)
         widget.setLayout(formLayot)
@@ -140,6 +146,18 @@ class ConnectionDock(QDockWidget):
             self.fallStatus.setStyleSheet("color: red")
             current_data = f'EMERGENCY: Fall detected! Acceleration: {total_accel:.2f}g, X:{accel_x:.2f}, Y:{accel_y:.2f}, Z:{accel_z:.2f}'
             self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+    
+    def reset_status(self):
+        """Reset fall detection status to normal"""
+        try:
+            self.fallStatus.setText('Normal')
+            self.fallStatus.setStyleSheet("color: green")
+            current_data = 'Reset: Fall detection status reset to normal'
+            self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+            ic("Fall detection status reset to normal")
+        except Exception as e:
+            ic(f"Error resetting fall status: {e}")
+            print(f"Error resetting fall status: {e}")
 
 class MainWindow(QMainWindow):    
     def __init__(self, parent=None):

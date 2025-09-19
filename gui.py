@@ -168,17 +168,38 @@ class EmergencyDock(QDockWidget):
             self.emergencyStatus.setText("EMERGENCY!")
             self.emergencyStatus.setStyleSheet("color: red; font-size: 16px; font-weight: bold")
             self.lastEmergency.append(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
-        else:
-            self.fallStatus.setText("No Fall Detected")
-            self.fallStatus.setStyleSheet("color: green")
+            
+            # Update emergency count for fall detection
+            current_count = int(self.emergencyCount.text().split(": ")[1])
+            self.emergencyCount.setText(f"Emergencies Today: {current_count + 1}")
+            self.emergencyCount.setStyleSheet("color: red; font-weight: bold")
+            
+            # Set a timer to reset fall status after 10 seconds
+            QTimer.singleShot(10000, self.reset_fall_status)
+        # Don't reset immediately on "Normal" messages - let the timer handle it
+    
+    def reset_fall_status(self):
+        """Reset fall status after a delay"""
+        self.fallStatus.setText("No Fall Detected")
+        self.fallStatus.setStyleSheet("color: green")
             
     def update_emergency_status(self, message):
-        if 'EMERGENCY' in message.upper():
+        # Check for emergency but ignore reset messages
+        if 'EMERGENCY' in message.upper() and 'RESET' not in message.upper():
             self.emergencyButtonStatus.setText("EMERGENCY TRIGGERED!")
             self.emergencyButtonStatus.setStyleSheet("color: red; font-weight: bold")
             self.emergencyStatus.setText("EMERGENCY!")
             self.emergencyStatus.setStyleSheet("color: red; font-size: 16px; font-weight: bold")
             self.lastEmergency.append(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
+            
+            # Update emergency count
+            current_count = int(self.emergencyCount.text().split(": ")[1])
+            self.emergencyCount.setText(f"Emergencies Today: {current_count + 1}")
+            self.emergencyCount.setStyleSheet("color: red; font-weight: bold")
+        elif 'RESET' in message.upper():
+            # Handle reset message - reset button status to ready
+            self.emergencyButtonStatus.setText("Emergency Button Ready")
+            self.emergencyButtonStatus.setStyleSheet("color: green")
 
 class HealthDock(QDockWidget):
     """Health Monitoring Dock"""
@@ -286,11 +307,24 @@ class ControlDock(QDockWidget):
         self.emergencyLighting.clicked.connect(self.activate_emergency_lighting)
         self.emergencyLighting.setStyleSheet("background-color: red; font-weight: bold")
         
+        # Reset button
+        self.resetLights = QPushButton("Reset All Lights")
+        self.resetLights.clicked.connect(self.reset_all_lights)
+        self.resetLights.setStyleSheet("background-color: orange; font-weight: bold")
+        
         # Status display
         self.lightingStatus = QTextEdit()
         self.lightingStatus.setMaximumHeight(100)
         self.lightingStatus.setReadOnly(True)
         self.lightingStatus.setText("All lights OFF")
+        
+        # Track button states
+        self.light_states = {
+            'Living Room': False,
+            'Bedroom': False,
+            'Bathroom': False,
+            'Kitchen': False
+        }
         
         formLayot = QFormLayout()
         formLayot.addRow("Living Room", self.livingRoomLight)
@@ -298,6 +332,7 @@ class ControlDock(QDockWidget):
         formLayot.addRow("Bathroom", self.bathroomLight)
         formLayot.addRow("Kitchen", self.kitchenLight)
         formLayot.addRow("", self.emergencyLighting)
+        formLayot.addRow("", self.resetLights)
         formLayot.addRow("Status", self.lightingStatus)
         
         widget = QWidget(self)
@@ -308,8 +343,15 @@ class ControlDock(QDockWidget):
         
     def toggle_light(self, room):
         # Toggle light state
-        button = getattr(self, room.lower().replace(" ", "") + "Light")
-        if button.styleSheet() == "background-color: gray":
+        # Convert "Living Room" to "livingRoomLight" format
+        room_attr = room.replace(" ", "")
+        room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+        button = getattr(self, room_attr)
+        
+        # Toggle the state
+        self.light_states[room] = not self.light_states[room]
+        
+        if self.light_states[room]:
             button.setStyleSheet("background-color: yellow")
             status = "ON"
         else:
@@ -323,16 +365,86 @@ class ControlDock(QDockWidget):
         self.update_lighting_status(f"{room} light turned {status}")
         
     def activate_emergency_lighting(self):
-        # Turn on all lights
-        lights = [self.livingRoomLight, self.bedroomLight, self.bathroomLight, self.kitchenLight]
-        for light in lights:
-            light.setStyleSheet("background-color: red")
+        try:
+            ic("Starting emergency lighting activation...")
             
-        self.mc.publish_to(comm_topic + 'actuators/smart_lighting/control', 'EMERGENCY: Activate all lights')
-        self.update_lighting_status("EMERGENCY: All lights activated")
+            # Turn on all lights and update states
+            lights = [self.livingRoomLight, self.bedroomLight, self.bathroomLight, self.kitchenLight]
+            light_names = ['Living Room', 'Bedroom', 'Bathroom', 'Kitchen']
+            
+            ic(f"Found {len(lights)} lights to activate")
+            
+            for i, (light, name) in enumerate(zip(lights, light_names)):
+                try:
+                    ic(f"Activating light {i+1}: {name}")
+                    light.setStyleSheet("background-color: red")
+                    self.light_states[name] = True
+                    ic(f"Light {name} activated successfully")
+                except Exception as light_error:
+                    ic(f"Error activating light {name}: {light_error}")
+                    continue
+                
+            ic("All lights activated, sending MQTT message...")
+            
+            # Send MQTT message
+            try:
+                topic = comm_topic + 'actuators/smart_lighting/control'
+                message = 'EMERGENCY: Activate all lights'
+                ic(f"Publishing to topic: {topic}")
+                ic(f"Message: {message}")
+                
+                if hasattr(self.mc, 'publish_to') and callable(getattr(self.mc, 'publish_to')):
+                    self.mc.publish_to(topic, message)
+                    ic("MQTT message sent successfully")
+                else:
+                    ic("ERROR: publish_to method not available")
+                    
+            except Exception as mqtt_error:
+                ic(f"MQTT publish error: {mqtt_error}")
+                
+            ic("Updating lighting status...")
+            self.update_lighting_status("EMERGENCY: All lights activated")
+            ic("Emergency lighting activation completed")
+            
+        except Exception as e:
+            ic(f"Critical error in emergency lighting: {e}")
+            ic(f"Error type: {type(e)}")
+            try:
+                self.update_lighting_status(f"ERROR: Emergency lighting failed - {e}")
+            except:
+                ic("Could not update lighting status due to error")
         
+    def reset_all_lights(self):
+        """Reset all lights to OFF state"""
+        try:
+            lights = [self.livingRoomLight, self.bedroomLight, self.bathroomLight, self.kitchenLight]
+            light_names = ['Living Room', 'Bedroom', 'Bathroom', 'Kitchen']
+            
+            for light, name in zip(lights, light_names):
+                light.setStyleSheet("background-color: gray")
+                self.light_states[name] = False
+                
+            self.mc.publish_to(comm_topic + 'actuators/smart_lighting/control', 'Reset: All lights turned OFF')
+            self.update_lighting_status("Reset: All lights turned OFF")
+        except Exception as e:
+            ic(f"Error resetting lights: {e}")
+            self.update_lighting_status(f"ERROR: Reset failed - {e}")
+    
     def update_lighting_status(self, message):
-        self.lightingStatus.append(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
+        try:
+            ic(f"Updating lighting status with message: {message}")
+            if hasattr(self, 'lightingStatus') and self.lightingStatus is not None:
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                status_text = f"{timestamp}: {message}"
+                self.lightingStatus.append(status_text)
+                ic(f"Status updated successfully: {status_text}")
+            else:
+                ic("ERROR: lightingStatus widget not available")
+        except Exception as e:
+            ic(f"Error updating lighting status: {e}")
+            ic(f"Error type: {type(e)}")
+            # Try to print the error to console as fallback
+            print(f"Lighting status update failed: {e}")
 
 class MedicationDock(QDockWidget):
     """Medication Management Dock"""
@@ -476,6 +588,16 @@ class AlertsDock(QDockWidget):
         self.infoCount.setText("Info: 0")
         self.emergencyCount.setStyleSheet("color: black")
         self.warningCount.setStyleSheet("color: black")
+        
+        # Also reset emergency count in EmergencyDock
+        mainwin.emergencyDock.emergencyCount.setText("Emergencies Today: 0")
+        mainwin.emergencyDock.emergencyCount.setStyleSheet("color: black")
+        mainwin.emergencyDock.emergencyStatus.setText("System Normal")
+        mainwin.emergencyDock.emergencyStatus.setStyleSheet("color: green; font-size: 16px; font-weight: bold")
+        mainwin.emergencyDock.fallStatus.setText("No Fall Detected")
+        mainwin.emergencyDock.fallStatus.setStyleSheet("color: green")
+        mainwin.emergencyDock.emergencyButtonStatus.setText("Emergency Button Ready")
+        mainwin.emergencyDock.emergencyButtonStatus.setStyleSheet("color: green")
 
 class MainWindow(QMainWindow):    
     def __init__(self, parent=None):
@@ -503,6 +625,11 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.controlDock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.medicationDock)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.alertsDock)
+        
+        # Make all dock widgets non-resizable and non-movable
+        for dock in [self.connectionDock, self.emergencyDock, self.healthDock, 
+                    self.controlDock, self.medicationDock, self.alertsDock]:
+            dock.setFeatures(QDockWidget.NoDockWidgetFeatures)
 
 if __name__ == "__main__":
     try:

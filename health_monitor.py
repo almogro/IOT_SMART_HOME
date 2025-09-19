@@ -94,6 +94,11 @@ class ConnectionDock(QDockWidget):
         self.emergencyButton.clicked.connect(self.simulate_emergency)
         self.emergencyButton.setStyleSheet("background-color: red")
         
+        self.resetButton = QPushButton("Reset Status", self)
+        self.resetButton.setToolTip("Reset health monitoring status")
+        self.resetButton.clicked.connect(self.reset_status)
+        self.resetButton.setStyleSheet("background-color: orange")
+        
         formLayot = QFormLayout()
         formLayot.addRow("Turn On/Off", self.eConnectbtn)
         formLayot.addRow("Pub topic", self.ePublisherTopic)
@@ -104,6 +109,7 @@ class ConnectionDock(QDockWidget):
         formLayot.addRow("Oxygen Saturation (%)", self.oxygenSaturation)
         formLayot.addRow("Health Status", self.healthStatus)
         formLayot.addRow("", self.emergencyButton)
+        formLayot.addRow("", self.resetButton)
         
         widget = QWidget(self)
         widget.setLayout(formLayot)
@@ -153,6 +159,26 @@ class ConnectionDock(QDockWidget):
         
         current_data = f'EMERGENCY: Health emergency detected! HR:{heart_rate}, BP:{bp_systolic}/{bp_diastolic}, Temp:{temperature:.1f}°C, O2:{oxygen_sat}%'
         self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+    
+    def reset_status(self):
+        """Reset health monitoring status to normal"""
+        try:
+            # Reset to normal values
+            self.heartRate.setText("72")
+            self.bloodPressureSystolic.setText("120")
+            self.bloodPressureDiastolic.setText("80")
+            self.temperature.setText("36.5")
+            self.oxygenSaturation.setText("98")
+            
+            self.healthStatus.setText('Normal')
+            self.healthStatus.setStyleSheet("color: green")
+            
+            current_data = 'Reset: Health monitoring status reset to normal'
+            self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+            ic("Health monitoring status reset to normal")
+        except Exception as e:
+            ic(f"Error resetting health status: {e}")
+            print(f"Error resetting health status: {e}")
 
 class MainWindow(QMainWindow):    
     def __init__(self, parent=None):

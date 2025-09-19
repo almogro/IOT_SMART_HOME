@@ -109,6 +109,11 @@ class ConnectionDock(QDockWidget):
         self.emergencyButton.clicked.connect(self.alert_missed_medication)
         self.emergencyButton.setStyleSheet("background-color: red")
         
+        self.resetButton = QPushButton("Reset Status", self)
+        self.resetButton.setToolTip("Reset medication reminder status")
+        self.resetButton.clicked.connect(self.reset_status)
+        self.resetButton.setStyleSheet("background-color: orange")
+        
         # Medication compliance meter
         self.complianceMeter = QProgressBar()
         self.complianceMeter.setValue(85)
@@ -126,6 +131,7 @@ class ConnectionDock(QDockWidget):
         formLayot.addRow("", self.takeMedicationButton)
         formLayot.addRow("", self.skipMedicationButton)
         formLayot.addRow("", self.emergencyButton)
+        formLayot.addRow("", self.resetButton)
         formLayot.addRow("Compliance", self.complianceMeter)
         formLayot.addRow("", self.complianceLabel)
         
@@ -205,6 +211,24 @@ class ConnectionDock(QDockWidget):
         self.compliance_score = max(0, self.compliance_score - 10)
         self.complianceMeter.setValue(self.compliance_score)
         self.complianceLabel.setText(f"Compliance: {self.compliance_score}%")
+    
+    def reset_status(self):
+        """Reset medication reminder status to normal"""
+        try:
+            self.statusDisplay.setText('System Ready')
+            self.statusDisplay.setStyleSheet("color: green")
+            
+            # Reset compliance to good level
+            self.compliance_score = 85
+            self.complianceMeter.setValue(self.compliance_score)
+            self.complianceLabel.setText(f"Compliance: {self.compliance_score}%")
+            
+            current_data = 'Reset: Medication reminder status reset to normal'
+            self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+            ic("Medication reminder status reset to normal")
+        except Exception as e:
+            ic(f"Error resetting medication status: {e}")
+            print(f"Error resetting medication status: {e}")
 
 class MainWindow(QMainWindow):    
     def __init__(self, parent=None):

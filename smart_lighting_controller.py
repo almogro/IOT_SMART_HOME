@@ -12,6 +12,7 @@ import time
 import datetime
 from init import *
 from agent import Mqtt_client
+from icecream import ic
 
 # Creating Client name - should be unique 
 global clientname, CONNECTED
@@ -95,6 +96,11 @@ class ConnectionDock(QDockWidget):
         self.emergencyLight.clicked.connect(self.activate_emergency_lighting)
         self.emergencyLight.setStyleSheet("background-color: red; font-size: 14px; font-weight: bold; color: white;")
         
+        # Reset button
+        self.resetLights = QPushButton("Reset All Lights", self)
+        self.resetLights.clicked.connect(self.reset_all_lights)
+        self.resetLights.setStyleSheet("background-color: orange; font-weight: bold")
+        
         # Status display
         self.statusDisplay = QTextEdit()
         self.statusDisplay.setMaximumHeight(100)
@@ -123,6 +129,7 @@ class ConnectionDock(QDockWidget):
         formLayot.addRow("", self.bathroomLight)
         formLayot.addRow("", self.kitchenLight)
         formLayot.addRow("", self.emergencyLight)
+        formLayot.addRow("", self.resetLights)
         formLayot.addRow("Status", self.statusDisplay)
         formLayot.addRow("Brightness", self.brightnessSlider)
         formLayot.addRow("", self.brightnessLabel)
@@ -158,42 +165,87 @@ class ConnectionDock(QDockWidget):
         self.mc.start_listening()
         
     def update_btn_state(self, messg):
-        if 'Turn On' in messg and 'Living Room' in messg:
-            self.light_states["Living Room"] = True
-            self.livingRoomLight.setStyleSheet("background-color: yellow")
-        elif 'Turn Off' in messg and 'Living Room' in messg:
-            self.light_states["Living Room"] = False
-            self.livingRoomLight.setStyleSheet("background-color: gray")
-        elif 'Emergency' in messg:
-            self.activate_emergency_lighting()
-        elif 'Auto Mode' in messg:
-            self.autoModeCheckbox.setChecked(True)
+        try:
+            if 'Turn On' in messg and 'Living Room' in messg:
+                self.light_states["Living Room"] = True
+                self.livingRoomLight.setStyleSheet("background-color: yellow")
+            elif 'Turn Off' in messg and 'Living Room' in messg:
+                self.light_states["Living Room"] = False
+                self.livingRoomLight.setStyleSheet("background-color: gray")
+            elif 'Emergency' in messg:
+                self.activate_emergency_lighting()
+            elif 'Auto Mode' in messg:
+                self.autoModeCheckbox.setChecked(True)
+            ic(f"Updated button state for message: {messg}")
+        except Exception as e:
+            ic(f"Error updating button state: {e}")
+            print(f"Error updating button state: {e}")
             
     def toggle_light(self, room):
-        self.light_states[room] = not self.light_states[room]
-        
-        if self.light_states[room]:
-            getattr(self, room.lower().replace(" ", "") + "Light").setStyleSheet("background-color: yellow")
-            action = "ON"
-        else:
-            getattr(self, room.lower().replace(" ", "") + "Light").setStyleSheet("background-color: gray")
-            action = "OFF"
+        try:
+            self.light_states[room] = not self.light_states[room]
             
-        current_data = f'Light Control: {room} light turned {action}'
-        self.mc.publish_to(self.ePublisherTopic.text(), current_data)
-        self.update_status_display()
+            # Convert room name to proper attribute name
+            room_attr = room.replace(" ", "")
+            room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+            
+            if self.light_states[room]:
+                getattr(self, room_attr).setStyleSheet("background-color: yellow")
+                action = "ON"
+            else:
+                getattr(self, room_attr).setStyleSheet("background-color: gray")
+                action = "OFF"
+                
+            current_data = f'Light Control: {room} light turned {action}'
+            self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+            self.update_status_display()
+            ic(f"Toggled {room} light to {action}")
+            
+        except Exception as e:
+            ic(f"Error toggling light {room}: {e}")
+            print(f"Error toggling light {room}: {e}")
         
     def activate_emergency_lighting(self):
-        # Turn on all lights for emergency
-        for room in self.light_states:
-            self.light_states[room] = True
-            getattr(self, room.lower().replace(" ", "") + "Light").setStyleSheet("background-color: red")
+        try:
+            # Turn on all lights for emergency
+            for room in self.light_states:
+                self.light_states[room] = True
+                # Convert room name to proper attribute name
+                room_attr = room.replace(" ", "")
+                room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+                getattr(self, room_attr).setStyleSheet("background-color: red")
+                
+            self.emergencyLight.setStyleSheet("background-color: darkred; font-size: 14px; font-weight: bold; color: white;")
             
-        self.emergencyLight.setStyleSheet("background-color: darkred; font-size: 14px; font-weight: bold; color: white;")
-        
-        current_data = 'EMERGENCY: All lights activated for emergency!'
-        self.mc.publish_to(self.ePublisherTopic.text(), current_data)
-        self.update_status_display()
+            current_data = 'EMERGENCY: All lights activated for emergency!'
+            self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+            self.update_status_display()
+            ic("Emergency lighting activated")
+            
+        except Exception as e:
+            ic(f"Error in emergency lighting: {e}")
+            print(f"Error in emergency lighting: {e}")
+    
+    def reset_all_lights(self):
+        """Reset all lights to OFF state"""
+        try:
+            for room in self.light_states:
+                self.light_states[room] = False
+                # Convert room name to proper attribute name
+                room_attr = room.replace(" ", "")
+                room_attr = room_attr[0].lower() + room_attr[1:] + "Light"
+                getattr(self, room_attr).setStyleSheet("background-color: gray")
+                
+            self.emergencyLight.setStyleSheet("background-color: red; font-size: 14px; font-weight: bold; color: white;")
+            
+            current_data = 'Reset: All lights turned OFF'
+            self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+            self.update_status_display()
+            ic("All lights reset to OFF")
+            
+        except Exception as e:
+            ic(f"Error resetting lights: {e}")
+            print(f"Error resetting lights: {e}")
         
     def update_brightness(self, value):
         self.brightnessLabel.setText(f"Brightness: {value}%")

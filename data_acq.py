@@ -355,27 +355,27 @@ if __name__ == '__main__':
         create_elderly_device('FallDetector_001', 'sensor', 'Living Room', 1, 
                             comm_topic + 'sensors/fall_detection', 
                             comm_topic + 'sensors/fall_detection/control',
-                            'Family: +1-555-0123', 'acceleration > 2.5g')
+                            'Family: 052-6605028', 'acceleration > 2.5g')
         
         create_elderly_device('HealthMonitor_001', 'sensor', 'Bedroom', 30, 
                             comm_topic + 'sensors/health_monitor', 
                             comm_topic + 'sensors/health_monitor/control',
-                            'Doctor: +1-555-0456', 'HR < 50 or > 120')
+                            'Doctor: 052-6605028', 'HR < 50 or > 120')
         
         create_elderly_device('EmergencyButton_001', 'sensor', 'Multiple Locations', 0, 
                             comm_topic + 'sensors/emergency_button', 
                             comm_topic + 'sensors/emergency_button/control',
-                            'Emergency: 911', 'button_pressed')
+                            'Emergency: 101', 'button_pressed')
         
         create_elderly_device('SmartLighting_001', 'actuator', 'Whole House', 60, 
                             comm_topic + 'actuators/smart_lighting/status', 
                             comm_topic + 'actuators/smart_lighting/control',
-                            'Family: +1-555-0123', 'motion_detected')
+                            'Family: 052-6605028', 'motion_detected')
         
         create_elderly_device('MedicationReminder_001', 'meter', 'Kitchen', 3600, 
                             comm_topic + 'sensors/medication_reminder', 
                             comm_topic + 'sensors/medication_reminder/control',
-                            'Family: +1-555-0123', 'medication_missed')
+                            'Family: 052-6605028', 'medication_missed')
         
         print("Sample devices created successfully!")
     else:

@@ -20,16 +20,16 @@ ic.configureOutput(includeContext=False)
 def on_log(client, userdata, level, buf):
     ic("log: " + buf)
             
-def on_connect(client, userdata, flags, rc):    
+def on_connect(client, userdata, flags, rc, properties=None):    
     if rc == 0:
         ic("connected OK")                
     else:
         ic("Bad connection Returned code=", rc)
         
-def on_disconnect(client, userdata, flags, rc=0):    
+def on_disconnect(client, userdata, flags, rc=0, properties=None):    
     ic("DisConnected result code " + str(rc))
         
-def on_message(client, userdata, msg):
+def on_message(client, userdata, msg, properties=None):
     topic = msg.topic
     m_decode = str(msg.payload.decode("utf-8", "ignore"))
     ic("message from: " + topic, m_decode)

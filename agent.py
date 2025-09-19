@@ -82,7 +82,7 @@ class Mqtt_client():
     def on_log(self, client, userdata, level, buf):
         ic("log: " + buf)
             
-    def on_connect(self, client, userdata, flags, rc):
+    def on_connect(self, client, userdata, flags, rc, properties=None):
         if rc == 0:
             ic("connected OK")
             self.connected = True
@@ -90,11 +90,11 @@ class Mqtt_client():
         else:
             ic("Bad connection Returned code=", rc)
             
-    def on_disconnect(self, client, userdata, flags, rc=0):
+    def on_disconnect(self, client, userdata, flags, rc=0, properties=None):
         self.connected = False
         ic("DisConnected result code " + str(rc))
             
-    def on_message(self, client, userdata, msg):
+    def on_message(self, client, userdata, msg, properties=None):
         topic = msg.topic
         m_decode = str(msg.payload.decode("utf-8", "ignore"))
         ic("message from:" + topic, m_decode)
