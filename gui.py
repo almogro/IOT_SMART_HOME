@@ -541,22 +541,97 @@ class MedicationDock(QDockWidget):
         self.setWindowTitle("Medication Management") 
         
     def take_medication(self):
+        
+        # Update compliance locally
+        current_value = self.complianceMeter.value()
+        new_value = min(100, current_value + 2)
+        self.complianceMeter.setValue(new_value)
+        self.complianceLabel.setText(f"Compliance: {new_value}%")
+        
+        # Send to MQTT
         self.mc.publish_to(comm_topic + 'sensors/medication_reminder', 'Medication Taken')
-        self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication taken")
+        self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication taken (+2 compliance)")
         
     def skip_medication(self):
+        
+        # Update compliance locally
+        current_value = self.complianceMeter.value()
+        new_value = max(0, current_value - 5)
+        self.complianceMeter.setValue(new_value)
+        self.complianceLabel.setText(f"Compliance: {new_value}%")
+        
+        # Send to MQTT
         self.mc.publish_to(comm_topic + 'sensors/medication_reminder', 'Medication Skipped')
-        self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication skipped")
+        self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication skipped (-5 compliance)")
         
     def update_medication_status(self, message):
-        if 'taken' in message.lower():
+        if 'Compliance Update:' in message:
+            # Handle compliance updates from standalone medication controller
+            if '+2' in message and 'Medication Taken' in message:
+                QTimer.singleShot(0, lambda: self._update_compliance_taken(message))
+            elif '-5' in message and 'Medication Skipped' in message:
+                QTimer.singleShot(0, lambda: self._update_compliance_skipped(message))
+            elif '-10' in message and 'Medication Missed' in message:
+                QTimer.singleShot(0, lambda: self._update_compliance_missed(message))
+        elif 'Medication Taken:' in message and 'Compliance Update:' not in message:
+            # Only show regular status messages if they're not compliance updates
             self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
-        elif 'skipped' in message.lower():
+        elif 'Medication Skipped:' in message and 'Compliance Update:' not in message:
             self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
-        elif 'missed' in message.lower():
+        elif 'EMERGENCY: Medication missed!' in message and 'Compliance Update:' not in message:
             self.medicationStatus.setText("MISSED MEDICATION ALERT!")
             self.medicationStatus.setStyleSheet("color: red")
             self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: {message}")
+    
+    def _update_compliance_taken(self, message):
+        """Update compliance when medication is taken"""
+        try:
+            current_value = self.complianceMeter.value()
+            new_value = min(100, current_value + 2)
+            self.complianceMeter.setValue(new_value)
+            self.complianceLabel.setText(f"Compliance: {new_value}%")
+            # Extract time from the message if available
+            if 'at ' in message:
+                time_part = message.split('at ')[1].split(')')[0]
+                self.medicationAlerts.append(f"{time_part}: Medication taken (+2 compliance)")
+            else:
+                self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication taken (+2 compliance)")
+        except Exception as e:
+            print(f"Error updating compliance for taken medication: {e}")
+    
+    def _update_compliance_skipped(self, message):
+        """Update compliance when medication is skipped"""
+        try:
+            current_value = self.complianceMeter.value()
+            new_value = max(0, current_value - 5)
+            self.complianceMeter.setValue(new_value)
+            self.complianceLabel.setText(f"Compliance: {new_value}%")
+            # Extract time from the message if available
+            if 'at ' in message:
+                time_part = message.split('at ')[1].split(')')[0]
+                self.medicationAlerts.append(f"{time_part}: Medication skipped (-5 compliance)")
+            else:
+                self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication skipped (-5 compliance)")
+        except Exception as e:
+            print(f"Error updating compliance for skipped medication: {e}")
+    
+    def _update_compliance_missed(self, message):
+        """Update compliance when medication is missed"""
+        try:
+            current_value = self.complianceMeter.value()
+            new_value = max(0, current_value - 10)
+            self.complianceMeter.setValue(new_value)
+            self.complianceLabel.setText(f"Compliance: {new_value}%")
+            # Extract time from the message if available
+            if 'at ' in message:
+                time_part = message.split('at ')[1].split(')')[0]
+                self.medicationAlerts.append(f"{time_part}: Medication missed (-10 compliance)")
+            else:
+                self.medicationAlerts.append(f"{datetime.now().strftime('%H:%M:%S')}: Medication missed (-10 compliance)")
+            self.medicationStatus.setText("MISSED MEDICATION ALERT!")
+            self.medicationStatus.setStyleSheet("color: red")
+        except Exception as e:
+            print(f"Error updating compliance for missed medication: {e}")
 
 class AlertsDock(QDockWidget):
     """System Alerts and Notifications Dock"""

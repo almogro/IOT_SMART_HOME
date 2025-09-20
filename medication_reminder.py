@@ -150,6 +150,7 @@ class ConnectionDock(QDockWidget):
             "Night": False
         }
         self.compliance_score = 85
+        self.last_button_click = 0  # Rate limiting for button clicks
         
     def on_connected(self):
         self.eConnectbtn.setStyleSheet("background-color: green")
@@ -175,9 +176,18 @@ class ConnectionDock(QDockWidget):
             self.statusDisplay.setStyleSheet("color: red")
             
     def take_medication(self):
+        # Rate limiting - prevent rapid clicks
+        current_time_ms = int(time.time() * 1000)
+        if current_time_ms - self.last_button_click < 1000:  # 1 second cooldown
+            return
+        self.last_button_click = current_time_ms
+        
+        
         current_time = datetime.datetime.now().strftime("%H:%M")
-        current_data = f'Medication Taken: Medication taken at {current_time}'
-        self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+        
+        # Send compliance update to main GUI (this will also show the status)
+        compliance_update = f'Compliance Update: +2 (Medication Taken at {current_time})'
+        self.mc.publish_to(self.ePublisherTopic.text(), compliance_update)
         
         self.statusDisplay.setText('Medication Taken')
         self.statusDisplay.setStyleSheet("color: green")
@@ -188,9 +198,18 @@ class ConnectionDock(QDockWidget):
         self.complianceLabel.setText(f"Compliance: {self.compliance_score}%")
         
     def skip_medication(self):
+        # Rate limiting - prevent rapid clicks
+        current_time_ms = int(time.time() * 1000)
+        if current_time_ms - self.last_button_click < 1000:  # 1 second cooldown
+            return
+        self.last_button_click = current_time_ms
+        
+        
         current_time = datetime.datetime.now().strftime("%H:%M")
-        current_data = f'Medication Skipped: Medication skipped at {current_time}'
-        self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+        
+        # Send compliance update to main GUI (this will also show the status)
+        compliance_update = f'Compliance Update: -5 (Medication Skipped at {current_time})'
+        self.mc.publish_to(self.ePublisherTopic.text(), compliance_update)
         
         self.statusDisplay.setText('Medication Skipped')
         self.statusDisplay.setStyleSheet("color: orange")
@@ -201,9 +220,18 @@ class ConnectionDock(QDockWidget):
         self.complianceLabel.setText(f"Compliance: {self.compliance_score}%")
         
     def alert_missed_medication(self):
+        # Rate limiting - prevent rapid clicks
+        current_time_ms = int(time.time() * 1000)
+        if current_time_ms - self.last_button_click < 1000:  # 1 second cooldown
+            return
+        self.last_button_click = current_time_ms
+        
+        
         current_time = datetime.datetime.now().strftime("%H:%M")
-        current_data = f'EMERGENCY: Medication missed! Alert sent at {current_time}'
-        self.mc.publish_to(self.ePublisherTopic.text(), current_data)
+        
+        # Send compliance update to main GUI (this will also show the status)
+        compliance_update = f'Compliance Update: -10 (Medication Missed at {current_time})'
+        self.mc.publish_to(self.ePublisherTopic.text(), compliance_update)
         
         self.statusDisplay.setText('MISSED MEDICATION ALERT!')
         self.statusDisplay.setStyleSheet("color: red")
@@ -216,6 +244,7 @@ class ConnectionDock(QDockWidget):
     def reset_status(self):
         """Reset medication reminder status to normal"""
         try:
+            
             self.statusDisplay.setText('System Ready')
             self.statusDisplay.setStyleSheet("color: green")
             
